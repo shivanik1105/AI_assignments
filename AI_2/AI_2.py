@@ -1,70 +1,111 @@
-class MissionaryCannibal:
-    def __init__(self):
-        self.left = [3, 3, 1]  # [missionaries, cannibals, boat]
-        self.right = [0, 0, 0]
+# map_coloring.py
+class MapColoring:
+    def __init__(self, regions=None, adjacency=None, colors=None):
+        # Default: Australia map
+        self.regions = regions or ["WA", "NT", "SA", "Q", "NSW", "V", "T"]
+        self.adjacency = adjacency or {
+            "WA": ["NT", "SA"],
+            "NT": ["WA", "SA", "Q"],
+            "SA": ["WA", "NT", "Q", "NSW", "V"],
+            "Q": ["NT", "SA", "NSW"],
+            "NSW": ["Q", "SA", "V"],
+            "V": ["SA", "NSW"],
+            "T": []  # Tasmania has no land neighbors
+        }
+        self.colors = colors or ["Red", "Green", "Blue"]
+        # assignment: region -> color or None
+        self.assignment = {r: None for r in self.regions}
+        self.steps = 0
 
     def display_state(self):
-        print(f"Left side: {self.left[0]} Missionaries, {self.left[1]} Cannibals, Boat: {'Yes' if self.left[2] == 1 else 'No'}")
-        print(f"Right side: {self.right[0]} Missionaries, {self.right[1]} Cannibals, Boat: {'Yes' if self.right[2] == 1 else 'No'}")
+        print("Current assignments:")
+        for r in self.regions:
+            print(f"  {r}: {self.assignment[r] or '-'}")
+        print()
 
-    def move(self, missionaries, cannibals, to_right):
-        if missionaries + cannibals > 2 or missionaries < 0 or cannibals < 0 or (missionaries == 0 and cannibals == 0):
+    def is_valid(self, region, color):
+        """Check if coloring 'region' with 'color' conflicts with neighbors."""
+        for neigh in self.adjacency.get(region, []):
+            neigh_color = self.assignment.get(neigh)
+            if neigh_color == color:
+                return False
+        return True
+
+    def select_unassigned_region(self):
+        """Simple selection: first unassigned region (could be improved with MRV)."""
+        for r in self.regions:
+            if self.assignment[r] is None:
+                return r
+        return None
+
+    def backtrack(self):
+        """Recursive backtracking search. Returns True if a complete valid assignment is found."""
+        self.steps += 1
+        region = self.select_unassigned_region()
+        if region is None:
+            return True  # all regions assigned
+
+        for color in self.colors:
+            if self.is_valid(region, color):
+                self.assignment[region] = color
+                # Uncomment next two lines to see the assignment steps live
+                # print(f"Assign {region} = {color}")
+                # self.display_state()
+                if self.backtrack():
+                    return True
+                # backtrack
+                self.assignment[region] = None
+
+        return False
+
+    def solve(self, show_steps=False):
+        self.steps = 0
+        if show_steps:
+            print("Starting map coloring...\n")
+            self.display_state()
+        success = self.backtrack()
+        if success:
+            print("Solution found!\n")
+            self.display_state()
+            print(f"Steps (recursive calls): {self.steps}")
+            return True
+        else:
+            print("No solution found.")
             return False
 
-        if to_right:
-            if self.left[0] >= missionaries and self.left[1] >= cannibals and self.left[2] == 1:
-                self.left[0] -= missionaries
-                self.left[1] -= cannibals
-                self.right[0] += missionaries
-                self.right[1] += cannibals
-                self.left[2] = 0
-                self.right[2] = 1
-                return True
-        else:
-            if self.right[0] >= missionaries and self.right[1] >= cannibals and self.right[2] == 1:
-                self.right[0] -= missionaries
-                self.right[1] -= cannibals
-                self.left[0] += missionaries
-                self.left[1] += cannibals
-                self.right[2] = 0
-                self.left[2] = 1
-                return True
-        return False
-
-    def check_lose(self):
-        if (self.left[0] > 0 and self.left[1] > self.left[0]) or (self.right[0] > 0 and self.right[1] > self.right[0]):
-            return True
-        return False
-
-    def win(self):
-        if self.right[0] == 3 and self.right[1] == 3:
-            return True
-        return False
 
 def main():
-    game = MissionaryCannibal()
+    # You can customize regions, adjacency and colors here if you want another map.
+    solver = MapColoring()
 
-    while True:
-        game.display_state()
-        if game.win():
-            print("Congratulations! All missionaries and cannibals have successfully crossed the river.")
-            break
+    # Interactive choice: solve automatically or let user assign manually before solving
+    choice = input("Solve automatically? (y/n) [y]: ").strip().lower() or "y"
+    if choice == "y":
+        solver.solve(show_steps=False)
+    else:
+        # Manual interactive assignment
+        while True:
+            solver.display_state()
+            if all(solver.assignment[r] is not None for r in solver.regions):
+                print("All regions assigned.")
+                break
+            region = input(f"Enter region to color {solver.regions}: ").strip()
+            if region not in solver.regions:
+                print("Unknown region. Try again.")
+                continue
+            color = input(f"Enter color {solver.colors}: ").strip().title()
+            if color not in solver.colors:
+                print("Invalid color. Try again.")
+                continue
+            if not solver.is_valid(region, color):
+                print("Invalid assignment: neighbors have same color. Try again.")
+                continue
+            solver.assignment[region] = color
 
-        if game.check_lose():
-            print("You lose. Cannibals outnumber missionaries on one side.")
-            break
-
-        try:
-            missionaries = int(input("Enter number of missionaries to move: "))
-            cannibals = int(input("Enter number of cannibals to move: "))
-        except ValueError:
-            print("Invalid input. Please enter integers.")
-            continue
-
-        to_right = game.left[2] == 1
-
-        if not game.move(missionaries, cannibals, to_right):
-            print("Invalid move. Try again.")
+        # Optionally check/complete with solver
+        cont = input("Do you want the solver to complete remaining regions / check consistency? (y/n) [n]: ").strip().lower() or "n"
+        if cont == "y":
+            solver.solve(show_steps=True)
 
 if __name__ == "__main__":
     main()
